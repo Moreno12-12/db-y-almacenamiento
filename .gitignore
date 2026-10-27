@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+terraform/.terraform/
+terraform/terraform.tfvars
+*.tfstate
+*.tfstate.*
+*.tfvars
+orbital-kit-*.json
+*.log
+.pytest_cache/

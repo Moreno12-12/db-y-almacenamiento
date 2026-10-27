@@ -1,0 +1,68 @@
+name: CI/CD DataOps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Ejecutar terraform apply (despliegue manual)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  python-tests:
+    name: Pruebas Python (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Correr pruebas
+        run: pytest tests/ -v
+
+  terraform:
+    name: Validar infraestructura (Terraform)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      TF_VAR_atlas_public_key: ${{ secrets.ATLAS_PUBLIC_KEY || 'CI_PLACEHOLDER' }}
+      TF_VAR_atlas_private_key: ${{ secrets.ATLAS_PRIVATE_KEY || 'CI_PLACEHOLDER' }}
+      TF_VAR_project_id: ${{ secrets.ATLAS_PROJECT_ID || '000000000000000000000000' }}
+      TF_VAR_db_password: ${{ secrets.ATLAS_DB_PASSWORD || 'CiPlaceholder123!' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform fmt (formato)
+        run: terraform fmt -check -diff
+
+      - name: terraform init (descargar providers)
+        run: terraform init -no-color -input=false
+
+      - name: terraform validate (sintaxis y semantica)
+        run: terraform validate -no-color
+
+      - name: terraform plan (cambios propuestos)
+        run: terraform plan -no-color -input=false -out=tfplan
+
+      - name: terraform apply (solo manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.apply == true
+        run: terraform apply -no-color -input=false -auto-approve tfplan
