@@ -35,6 +35,7 @@ jobs:
   terraform:
     name: Validar infraestructura (Terraform)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: terraform
@@ -65,4 +66,11 @@ jobs:
 
       - name: terraform apply (solo manual)
         if: github.event_name == 'workflow_dispatch' && inputs.apply == true
-        run: terraform apply -no-color -input=false -auto-approve tfplan
+        env:
+          HAS_SECRETS: ${{ secrets.ATLAS_PUBLIC_KEY != '' && secrets.ATLAS_PRIVATE_KEY != '' && secrets.ATLAS_PROJECT_ID != '' && secrets.ATLAS_DB_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_SECRETS" != "true" ]; then
+            echo "::error::Faltan secrets de Atlas (ATLAS_PUBLIC_KEY, ATLAS_PRIVATE_KEY, ATLAS_PROJECT_ID, ATLAS_DB_PASSWORD). Configuralos en Settings > Secrets and variables > Actions antes de aplicar. Con placeholders NO se puede aplicar."
+            exit 1
+          fi
+          terraform apply -no-color -input=false -auto-approve tfplan
